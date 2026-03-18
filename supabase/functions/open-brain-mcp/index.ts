@@ -52,7 +52,8 @@ async function extractMetadata(text: string): Promise<Record<string, unknown>> {
 - "action_items": array of implied to-dos (empty if none)
 - "dates_mentioned": array of dates YYYY-MM-DD (empty if none)
 - "topics": array of 1-3 short topic tags (always at least one)
-- "type": one of "observation", "task", "idea", "reference", "person_note"
+- "type": one of "observation", "task", "idea", "reference", "person_note", "decision", "action_item", "question"
+- "sentiment": one of "positive", "neutral", "negative"
 Only extract what's explicitly there.`,
         },
         { role: "user", content: text },
@@ -63,7 +64,7 @@ Only extract what's explicitly there.`,
   try {
     return JSON.parse(d.choices[0].message.content);
   } catch {
-    return { topics: ["uncategorized"], type: "observation" };
+    return { topics: ["uncategorized"], type: "observation", sentiment: "neutral" };
   }
 }
 
@@ -163,7 +164,7 @@ server.registerTool(
       "List recently captured thoughts with optional filters by type, topic, person, or time range.",
     inputSchema: {
       limit: z.number().optional().default(10),
-      type: z.string().optional().describe("Filter by type: observation, task, idea, reference, person_note"),
+      type: z.string().optional().describe("Filter by type: observation, task, idea, reference, person_note, decision, action_item, question"),
       topic: z.string().optional().describe("Filter by topic tag"),
       person: z.string().optional().describe("Filter by person mentioned"),
       days: z.number().optional().describe("Only thoughts from the last N days"),
