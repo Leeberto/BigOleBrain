@@ -8,7 +8,10 @@ export const TABLE_GROUPS: TableGroup[] = [
   {
     name: "Core",
     icon: "\u{1F9E0}",
-    tables: [{ key: "thoughts", label: "Thoughts" }],
+    tables: [
+      { key: "thoughts", label: "Thoughts" },
+      { key: "actions", label: "Actions" },
+    ],
   },
   {
     name: "Household",

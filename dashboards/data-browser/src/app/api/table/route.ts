@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const to = from + PAGE_SIZE - 1;
 
   // Tables without a user_id column (core tables)
-  const NO_USER_ID = new Set(["thoughts"]);
+  const NO_USER_ID = new Set(["thoughts", "actions"]);
 
   let data: Record<string, unknown>[] | null = null;
   let count: number | null = null;

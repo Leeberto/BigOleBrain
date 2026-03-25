@@ -351,6 +351,348 @@ server.registerTool(
   }
 );
 
+// --- Action Tools ---
+
+// Tool 5: Create Action
+server.registerTool(
+  "create_action",
+  {
+    title: "Create Action",
+    description:
+      "Create a new trackable action item. Optionally link to a source thought.",
+    inputSchema: {
+      content: z.string().describe("What needs to be done"),
+      due_date: z.string().optional().describe("Deadline in YYYY-MM-DD format"),
+      tags: z.array(z.string()).optional().describe("Categorization tags"),
+      thought_id: z.string().optional().describe("UUID of the source thought to link"),
+      blocked_by: z.string().optional().describe("What is blocking this action"),
+      unblocks: z.string().optional().describe("What this action unblocks when done"),
+    },
+  },
+  async ({ content, due_date, tags, thought_id, blocked_by, unblocks }) => {
+    try {
+      const row: Record<string, unknown> = { content };
+      if (due_date) row.due_date = due_date;
+      if (tags && tags.length) row.tags = tags;
+      if (thought_id) row.thought_id = thought_id;
+      if (blocked_by) row.blocked_by = blocked_by;
+      if (unblocks) row.unblocks = unblocks;
+
+      const { data, error } = await supabase
+        .from("actions")
+        .insert(row)
+        .select("id, content, status, due_date, tags")
+        .single();
+
+      if (error) {
+        return {
+          content: [{ type: "text" as const, text: `Failed to create action: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      let msg = `Action created (${data.id}):\n"${data.content}"`;
+      if (data.due_date) msg += `\nDue: ${data.due_date}`;
+      if (data.tags?.length) msg += `\nTags: ${data.tags.join(", ")}`;
+      if (blocked_by) msg += `\nBlocked by: ${blocked_by}`;
+      if (unblocks) msg += `\nUnblocks: ${unblocks}`;
+
+      return { content: [{ type: "text" as const, text: msg }] };
+    } catch (err: unknown) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool 6: Update Action
+server.registerTool(
+  "update_action",
+  {
+    title: "Update Action",
+    description:
+      "Update any mutable field on an action: status, due_date, blocked_by, unblocks, or tags.",
+    inputSchema: {
+      id: z.string().describe("UUID of the action to update"),
+      status: z.enum(["open", "in_progress", "done", "cancelled"]).optional().describe("New status"),
+      due_date: z.string().optional().describe("New deadline in YYYY-MM-DD format"),
+      blocked_by: z.string().optional().describe("What is blocking this action"),
+      unblocks: z.string().optional().describe("What this action unblocks"),
+      tags: z.array(z.string()).optional().describe("Replace tags with this list"),
+    },
+  },
+  async ({ id, status, due_date, blocked_by, unblocks, tags }) => {
+    try {
+      const updates: Record<string, unknown> = {};
+      if (status !== undefined) updates.status = status;
+      if (due_date !== undefined) updates.due_date = due_date;
+      if (blocked_by !== undefined) updates.blocked_by = blocked_by;
+      if (unblocks !== undefined) updates.unblocks = unblocks;
+      if (tags !== undefined) updates.tags = tags;
+
+      if (Object.keys(updates).length === 0) {
+        return {
+          content: [{ type: "text" as const, text: "No fields to update." }],
+        };
+      }
+
+      const { data, error } = await supabase
+        .from("actions")
+        .update(updates)
+        .eq("id", id)
+        .select("id, content, status, due_date, tags, blocked_by, unblocks")
+        .single();
+
+      if (error) {
+        return {
+          content: [{ type: "text" as const, text: `Failed to update: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Updated action (${data.id}):\n"${data.content}"\nStatus: ${data.status}${data.due_date ? `\nDue: ${data.due_date}` : ""}${data.blocked_by ? `\nBlocked by: ${data.blocked_by}` : ""}${data.unblocks ? `\nUnblocks: ${data.unblocks}` : ""}${data.tags?.length ? `\nTags: ${data.tags.join(", ")}` : ""}`,
+          },
+        ],
+      };
+    } catch (err: unknown) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool 7: Complete Action
+server.registerTool(
+  "complete_action",
+  {
+    title: "Complete Action",
+    description:
+      "Mark an action as done. Requires a completion note documenting what was done, who was unblocked, and what deadline was met.",
+    inputSchema: {
+      id: z.string().describe("UUID of the action to complete"),
+      completion_note: z.string().describe("What was done, who was unblocked, what deadline was met"),
+    },
+  },
+  async ({ id, completion_note }) => {
+    try {
+      const { data, error } = await supabase
+        .from("actions")
+        .update({
+          status: "done",
+          completed_at: new Date().toISOString(),
+          completion_note,
+        })
+        .eq("id", id)
+        .select("id, content, completed_at, completion_note")
+        .single();
+
+      if (error) {
+        return {
+          content: [{ type: "text" as const, text: `Failed to complete: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Action completed (${data.id}):\n"${data.content}"\nCompleted: ${new Date(data.completed_at).toLocaleDateString()}\nNote: ${data.completion_note}`,
+          },
+        ],
+      };
+    } catch (err: unknown) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool 8: List Actions
+server.registerTool(
+  "list_actions",
+  {
+    title: "List Actions",
+    description:
+      "List actions filtered by status, recency, or tag. Default: open actions sorted by due_date (nulls last).",
+    inputSchema: {
+      status: z.enum(["open", "in_progress", "done", "cancelled"]).optional().describe("Filter by status (default: open)"),
+      days: z.number().optional().describe("Only actions from the last N days"),
+      tag: z.string().optional().describe("Filter by tag"),
+      limit: z.number().optional().default(20).describe("Max results"),
+    },
+  },
+  async ({ status, days, tag, limit }) => {
+    try {
+      let q = supabase
+        .from("actions")
+        .select("id, content, status, due_date, tags, blocked_by, unblocks, created_at, completed_at, completion_note")
+        .limit(limit);
+
+      // Default to open if no status specified
+      if (status) {
+        q = q.eq("status", status);
+      } else {
+        q = q.eq("status", "open");
+      }
+
+      if (days) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        q = q.gte("created_at", since.toISOString());
+      }
+
+      if (tag) {
+        q = q.contains("tags", [tag]);
+      }
+
+      // Sort by due_date ascending (nulls last) for open/in_progress, by completed_at desc for done
+      if (!status || status === "open" || status === "in_progress") {
+        q = q.order("due_date", { ascending: true, nullsFirst: false });
+      } else {
+        q = q.order("completed_at", { ascending: false });
+      }
+
+      const { data, error } = await q;
+
+      if (error) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      if (!data || !data.length) {
+        return {
+          content: [{ type: "text" as const, text: `No ${status || "open"} actions found.` }],
+        };
+      }
+
+      const results = data.map(
+        (a: {
+          id: string;
+          content: string;
+          status: string;
+          due_date: string | null;
+          tags: string[];
+          blocked_by: string | null;
+          unblocks: string | null;
+          created_at: string;
+          completed_at: string | null;
+          completion_note: string | null;
+        }, i: number) => {
+          const parts = [`${i + 1}. [${a.status}] ${a.content}`];
+          parts.push(`   ID: ${a.id}`);
+          if (a.due_date) parts.push(`   Due: ${a.due_date}`);
+          if (a.tags?.length) parts.push(`   Tags: ${a.tags.join(", ")}`);
+          if (a.blocked_by) parts.push(`   Blocked by: ${a.blocked_by}`);
+          if (a.unblocks) parts.push(`   Unblocks: ${a.unblocks}`);
+          if (a.completed_at) parts.push(`   Completed: ${new Date(a.completed_at).toLocaleDateString()}`);
+          if (a.completion_note) parts.push(`   Note: ${a.completion_note}`);
+          return parts.join("\n");
+        }
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `${data.length} action(s):\n\n${results.join("\n\n")}`,
+          },
+        ],
+      };
+    } catch (err: unknown) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Tool 9: Search Actions
+server.registerTool(
+  "search_actions",
+  {
+    title: "Search Actions",
+    description:
+      "Full-text search across action content and completion notes.",
+    inputSchema: {
+      query: z.string().describe("Search text"),
+      limit: z.number().optional().default(10).describe("Max results"),
+    },
+  },
+  async ({ query, limit }) => {
+    try {
+      // Search content and completion_note using ilike
+      const { data, error } = await supabase
+        .from("actions")
+        .select("id, content, status, due_date, tags, blocked_by, unblocks, completed_at, completion_note, created_at")
+        .or(`content.ilike.%${query}%,completion_note.ilike.%${query}%`)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        return {
+          content: [{ type: "text" as const, text: `Search error: ${error.message}` }],
+          isError: true,
+        };
+      }
+
+      if (!data || !data.length) {
+        return {
+          content: [{ type: "text" as const, text: `No actions matching "${query}".` }],
+        };
+      }
+
+      const results = data.map(
+        (a: {
+          id: string;
+          content: string;
+          status: string;
+          due_date: string | null;
+          tags: string[];
+          completed_at: string | null;
+          completion_note: string | null;
+          created_at: string;
+        }, i: number) => {
+          const parts = [`${i + 1}. [${a.status}] ${a.content}`];
+          parts.push(`   ID: ${a.id}`);
+          if (a.due_date) parts.push(`   Due: ${a.due_date}`);
+          if (a.tags?.length) parts.push(`   Tags: ${a.tags.join(", ")}`);
+          if (a.completion_note) parts.push(`   Completion: ${a.completion_note}`);
+          parts.push(`   Created: ${new Date(a.created_at).toLocaleDateString()}`);
+          return parts.join("\n");
+        }
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `${data.length} action(s) matching "${query}":\n\n${results.join("\n\n")}`,
+          },
+        ],
+      };
+    } catch (err: unknown) {
+      return {
+        content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
 // --- Hono App with Auth Check ---
 
 const app = new Hono();
