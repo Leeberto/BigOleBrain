@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "dashboards/data-browser", "run", "dev", "--", "--port", "3001"],
       "port": 3001
+    },
+    {
+      "name": "Thought Explorer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "dashboards/thought-explorer", "run", "dev", "--", "--port", "3003"],
+      "port": 3003
     }
   ]
 }

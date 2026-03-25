@@ -1,0 +1,282 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase";
+import { Thought, ThoughtStats } from "@/lib/types";
+import { LoginForm } from "./login-form";
+import { StatsHeader } from "./StatsHeader";
+import { FilterBar } from "./FilterBar";
+import { SearchBar } from "./SearchBar";
+import { ThoughtCard } from "./ThoughtCard";
+import { Heatmap } from "./Heatmap";
+import { TopicClusters } from "./TopicClusters";
+
+type View = "timeline" | "heatmap" | "topics";
+
+export default function Explorer() {
+  const clientRef = useRef(createClient());
+  const client = clientRef.current;
+
+  const [session, setSession] = useState<boolean | null>(null);
+  const [view, setView] = useState<View>("timeline");
+
+  // Timeline state
+  const [thoughts, setThoughts] = useState<Thought[]>([]);
+  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  // Filter state
+  const [type, setType] = useState("");
+  const [topic, setTopic] = useState("");
+  const [person, setPerson] = useState("");
+  const [search, setSearch] = useState("");
+
+  // Stats
+  const [stats, setStats] = useState<ThoughtStats | null>(null);
+
+  // Heatmap dates
+  const [allDates, setAllDates] = useState<string[]>([]);
+
+  // Topic clusters
+  const [clusters, setClusters] = useState<{ topic: string; count: number }[]>([]);
+
+  // Filter options (derived from all thoughts metadata)
+  const [allTypes, setAllTypes] = useState<string[]>([]);
+  const [allTopics, setAllTopics] = useState<string[]>([]);
+  const [allPeople, setAllPeople] = useState<string[]>([]);
+
+  // Auth check
+  useEffect(() => {
+    client.auth.getSession().then(({ data }) => {
+      setSession(!!data.session);
+    });
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((_event, s) => {
+      setSession(!!s);
+    });
+    return () => subscription.unsubscribe();
+  }, [client]);
+
+  // Fetch stats + filter options + heatmap dates on login
+  const fetchMeta = useCallback(async () => {
+    const [statsRes, datesRes] = await Promise.all([
+      fetch("/api/thoughts?mode=stats"),
+      fetch("/api/thoughts?mode=dates"),
+    ]);
+    if (statsRes.ok) {
+      const { stats } = await statsRes.json();
+      setStats(stats);
+    }
+    if (datesRes.ok) {
+      const { data } = await datesRes.json();
+      const dates = data.map((t: { created_at: string }) => t.created_at);
+      setAllDates(dates);
+
+      // Derive filter options and topic clusters
+      const typeSet = new Set<string>();
+      const topicCounts: Record<string, number> = {};
+      const personSet = new Set<string>();
+
+      for (const t of data) {
+        const m = t.metadata as Record<string, unknown> | null;
+        if (m?.type && typeof m.type === "string") typeSet.add(m.type);
+        if (m?.topics && Array.isArray(m.topics)) {
+          for (const topic of m.topics) {
+            topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+          }
+        }
+        if (m?.people && Array.isArray(m.people)) {
+          for (const p of m.people) personSet.add(p);
+        }
+      }
+
+      setAllTypes(Array.from(typeSet).sort());
+      setAllTopics(Object.keys(topicCounts).sort());
+      setAllPeople(Array.from(personSet).sort());
+      setClusters(
+        Object.entries(topicCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([topic, count]) => ({ topic, count }))
+      );
+    }
+  }, []);
+
+  // Fetch timeline thoughts
+  const fetchThoughts = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page) });
+    if (type) params.set("type", type);
+    if (topic) params.set("topic", topic);
+    if (person) params.set("person", person);
+    if (search) params.set("search", search);
+
+    const res = await fetch(`/api/thoughts?${params}`);
+    if (res.ok) {
+      const { data, count } = await res.json();
+      setThoughts(data || []);
+      setCount(count || 0);
+    }
+    setLoading(false);
+  }, [page, type, topic, person, search]);
+
+  useEffect(() => {
+    if (session) {
+      fetchMeta();
+    }
+  }, [session, fetchMeta]);
+
+  useEffect(() => {
+    if (session) {
+      fetchThoughts();
+    }
+  }, [session, fetchThoughts]);
+
+  // Reset page on filter change
+  useEffect(() => {
+    setPage(0);
+  }, [type, topic, person, search]);
+
+  if (session === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-text-muted">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <LoginForm
+        client={client}
+        onSuccess={() => setSession(true)}
+      />
+    );
+  }
+
+  const totalPages = Math.ceil(count / 25);
+
+  return (
+    <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-text-primary">
+          Thought Explorer
+        </h1>
+        <button
+          onClick={() => client.auth.signOut()}
+          className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+
+      {/* Stats */}
+      <StatsHeader stats={stats} />
+
+      {/* View tabs */}
+      <div className="flex items-center gap-1 border-b border-border pb-1">
+        {(["timeline", "heatmap", "topics"] as View[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`px-3 py-1.5 text-sm rounded-t transition-colors ${
+              view === v
+                ? "bg-bg-card text-accent border border-border border-b-0"
+                : "text-text-muted hover:text-text-secondary"
+            }`}
+          >
+            {v === "timeline" ? "Timeline" : v === "heatmap" ? "Heatmap" : "Topics"}
+          </button>
+        ))}
+      </div>
+
+      {/* Timeline View */}
+      {view === "timeline" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchBar value={search} onChange={setSearch} />
+            <FilterBar
+              type={type}
+              topic={topic}
+              person={person}
+              onTypeChange={setType}
+              onTopicChange={setTopic}
+              onPersonChange={setPerson}
+              types={allTypes}
+              topics={allTopics}
+              people={allPeople}
+            />
+          </div>
+
+          {loading ? (
+            <div className="text-sm text-text-muted py-8 text-center">
+              Loading thoughts...
+            </div>
+          ) : thoughts.length === 0 ? (
+            <div className="text-sm text-text-muted py-8 text-center">
+              No thoughts found.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {thoughts.map((t) => (
+                <ThoughtCard key={t.id} thought={t} />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="rounded border border-border px-3 py-1 text-xs text-text-secondary hover:bg-bg-card disabled:opacity-30"
+              >
+                Prev
+              </button>
+              <span className="text-xs text-text-muted">
+                Page {page + 1} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="rounded border border-border px-3 py-1 text-xs text-text-secondary hover:bg-bg-card disabled:opacity-30"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Heatmap View */}
+      {view === "heatmap" && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-medium text-text-secondary">
+            Activity (last 6 months)
+          </h2>
+          <Heatmap dates={allDates} />
+        </div>
+      )}
+
+      {/* Topics View */}
+      {view === "topics" && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-medium text-text-secondary">
+            Topic Clusters
+          </h2>
+          <TopicClusters
+            clusters={clusters}
+            activeTopic={topic}
+            onSelectTopic={(t) => {
+              setTopic(t);
+              if (t) setView("timeline");
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
