@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Home Maintenance Dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "dashboards/home-maintenance", "run", "dev", "--", "--port", "3002"],
+      "port": 3002
+    },
+    {
+      "name": "Data Browser Dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "dashboards/data-browser", "run", "dev", "--", "--port", "3001"],
+      "port": 3001
+    }
+  ]
+}
