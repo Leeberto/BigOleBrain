@@ -114,6 +114,7 @@ server.registerTool(
       const results = data.map(
         (
           t: {
+            id: string;
             content: string;
             metadata: Record<string, unknown>;
             similarity: number;
@@ -124,6 +125,7 @@ server.registerTool(
           const m = t.metadata || {};
           const parts = [
             `--- Result ${i + 1} (${(t.similarity * 100).toFixed(1)}% match) ---`,
+            `ID: ${t.id}`,
             `Captured: ${new Date(t.created_at).toLocaleDateString()}`,
             `Type: ${m.type || "unknown"}`,
           ];
@@ -174,7 +176,7 @@ server.registerTool(
     try {
       let q = supabase
         .from("thoughts")
-        .select("content, metadata, created_at")
+        .select("id, content, metadata, created_at")
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -202,12 +204,12 @@ server.registerTool(
 
       const results = data.map(
         (
-          t: { content: string; metadata: Record<string, unknown>; created_at: string },
+          t: { id: string; content: string; metadata: Record<string, unknown>; created_at: string },
           i: number
         ) => {
           const m = t.metadata || {};
           const tags = Array.isArray(m.topics) ? (m.topics as string[]).join(", ") : "";
-          return `${i + 1}. [${new Date(t.created_at).toLocaleDateString()}] (${m.type || "??"}${tags ? " - " + tags : ""})\n   ${t.content}`;
+          return `${i + 1}. [${t.id}] [${new Date(t.created_at).toLocaleDateString()}] (${m.type || "??"}${tags ? " - " + tags : ""})\n   ${t.content}`;
         }
       );
 
@@ -317,11 +319,11 @@ server.registerTool(
         extractMetadata(content),
       ]);
 
-      const { error } = await supabase.from("thoughts").insert({
+      const { data: inserted, error } = await supabase.from("thoughts").insert({
         content,
         embedding,
         metadata: { ...metadata, source: "mcp" },
-      });
+      }).select("id").single();
 
       if (error) {
         return {
@@ -331,7 +333,7 @@ server.registerTool(
       }
 
       const meta = metadata as Record<string, unknown>;
-      let confirmation = `Captured as ${meta.type || "thought"}`;
+      let confirmation = `[${inserted.id}] Captured as ${meta.type || "thought"}`;
       if (Array.isArray(meta.topics) && meta.topics.length)
         confirmation += ` — ${(meta.topics as string[]).join(", ")}`;
       if (Array.isArray(meta.people) && meta.people.length)
