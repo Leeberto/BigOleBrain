@@ -212,9 +212,11 @@ List my open actions.
 
 ---
 
-### Feature 1.1c: Due dates on recurring actions
+### Feature 1.1c: Due dates on recurring actions ✅ COMPLETE
 
 **Category:** Included in Feature 1.1b — this is a design note, not a separate build.
+
+**Status:** Satisfied by Feature 1.1b. The `calculateNextDue` function anchors to the original due date, not the completion date. No separate build required.
 
 **Clarification:**
 
