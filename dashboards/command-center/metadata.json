@@ -1,0 +1,21 @@
+{
+  "name": "Command Center",
+  "description": "Action-driving dashboard — shows what needs attention and what to do next. Today view, upcoming calendar, and thought feed with convert-to-action workflow.",
+  "category": "dashboards",
+  "author": {
+    "name": "Nate B. Jones",
+    "github": "NateBJones-Projects"
+  },
+  "version": "1.0.0",
+  "requires": {
+    "open_brain": true,
+    "tables": ["thoughts", "actions", "activities", "important_dates", "maintenance_tasks"],
+    "services": ["Vercel"],
+    "tools": ["Node.js 18+"]
+  },
+  "tags": ["command-center", "actions", "dashboard", "dark-mode", "calendar"],
+  "difficulty": "intermediate",
+  "estimated_time": "30 minutes",
+  "created": "2026-03-28",
+  "updated": "2026-03-28"
+}

@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "dashboards/thought-explorer", "run", "dev", "--", "--port", "3003"],
       "port": 3003
+    },
+    {
+      "name": "Command Center",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "dashboards/command-center", "run", "dev", "--", "--port", "3004"],
+      "port": 3004
     }
   ]
 }
