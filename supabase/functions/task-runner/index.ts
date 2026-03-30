@@ -2,12 +2,12 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 import { Hono } from "npm:hono";
 import { createClient } from "npm:@supabase/supabase-js";
+import { detectStaleLoops, formatStaleLoopsOutput } from "../_shared/stale-loops.ts";
+import { getEmbedding as getEmbeddingBase, OPENROUTER_BASE } from "../_shared/openrouter.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
-
-const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Sweep window in minutes — tasks whose cron fired within this window get executed.
@@ -366,6 +366,20 @@ async function handleAlertDigest(task: Record<string, unknown>): Promise<string>
   return lines.join("\n");
 }
 
+const getEmbedding = (text: string) => getEmbeddingBase(text, OPENROUTER_API_KEY);
+
+async function handleStaleLoopScan(task: Record<string, unknown>): Promise<string> {
+  const config = (task.gather_config ?? {}) as {
+    stale_threshold_days?: number;
+    limit?: number;
+  };
+  const days = config.stale_threshold_days ?? 14;
+  const limit = config.limit ?? 20;
+
+  const items = await detectStaleLoops(supabase, getEmbedding, { days, limit });
+  return formatStaleLoopsOutput(items, days);
+}
+
 // ──────────────────────────────────────────────
 // Task Execution Pipeline
 // ──────────────────────────────────────────────
@@ -416,6 +430,8 @@ async function executeTask(task: Record<string, unknown>): Promise<TaskResult> {
         output = await handleAlertDigest(task);
         break;
       case "stale_loop_scan":
+        output = await handleStaleLoopScan(task);
+        break;
       case "deck_builder":
       case "trend_analysis":
         output = `Task type "${taskType}" is not yet implemented. Gathered data:\n\n${gatheredText}`;

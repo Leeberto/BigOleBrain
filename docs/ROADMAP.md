@@ -31,13 +31,13 @@ See `CLAUDE.md` for the full list. Key rules:
 | 1.2b Today view | ✅ Complete | `docs/specs/1.2b-today-view.md` |
 | 1.2c Upcoming view | ✅ Complete | `docs/specs/1.2c-upcoming-view.md` |
 | 1.2d Thoughts view | ✅ Complete | `docs/specs/1.2d-thoughts-view.md` |
-| 3.2 Stale loop detector (MCP) | 🔲 Quick win | `docs/specs/3.2-stale-loop-mcp.md` |
+| 3.2 Stale loop detector (MCP) | ✅ Complete | `docs/specs/3.2-stale-loop-mcp.md` |
 | 4.2 Weekly trends (MCP) | 🔲 Quick win | `docs/specs/4.2-weekly-trends-mcp.md` |
 | 1.1d-s1 Task engine schema | ✅ Complete | `docs/specs/1.1d-s1-task-engine-schema.md` |
 | 1.1d-s2 Cron triggers | ✅ Complete | `docs/specs/1.1d-s2-cron-triggers.md` |
 | 1.1d-s3 LLM prompt task type | ✅ Complete | `docs/specs/1.1d-s3-llm-prompt.md` |
 | 1.1d-s4 Alert digest task type | ✅ Complete | `docs/specs/1.1d-s4-alert-digest.md` |
-| 1.1d-s5 Stale loop scan task type | 🔲 Blocked on 1.1d-s2, 3.2 | `docs/specs/1.1d-s5-stale-loop-scan.md` |
+| 1.1d-s5 Stale loop scan task type | ✅ Complete | `docs/specs/1.1d-s5-stale-loop-scan.md` |
 | 1.1d-s6 Deck builder task type | 🚫 Blocked on template | `docs/specs/1.1d-s6-deck-builder.md` |
 | 1.1d-s7 Event trigger | 🔲 Blocked on 1.1d-s2 | `docs/specs/1.1d-s7-event-trigger.md` |
 | 1.1d-s8 Trend analysis task type | 🔲 Blocked on 1.1d-s2, 4.2 | `docs/specs/1.1d-s8-trend-analysis.md` |

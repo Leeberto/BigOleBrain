@@ -5,34 +5,17 @@ import { StreamableHTTPTransport } from "npm:@hono/mcp";
 import { Hono } from "npm:hono";
 import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
+import { detectStaleLoops, formatStaleLoopsOutput } from "../_shared/stale-loops.ts";
+import { getEmbedding as getEmbeddingBase, OPENROUTER_BASE } from "../_shared/openrouter.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const MCP_ACCESS_KEY = Deno.env.get("MCP_ACCESS_KEY")!;
 
-const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-async function getEmbedding(text: string): Promise<number[]> {
-  const r = await fetch(`${OPENROUTER_BASE}/embeddings`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/text-embedding-3-small",
-      input: text,
-    }),
-  });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => "");
-    throw new Error(`OpenRouter embeddings failed: ${r.status} ${msg}`);
-  }
-  const d = await r.json();
-  return d.data[0].embedding;
-}
+const getEmbedding = (text: string) => getEmbeddingBase(text, OPENROUTER_API_KEY);
 
 async function extractMetadata(text: string): Promise<Record<string, unknown>> {
   const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
@@ -758,211 +741,11 @@ server.registerTool(
   },
   async ({ days, limit }) => {
     try {
-      const now = new Date();
-      const cutoff = new Date(now);
-      cutoff.setDate(cutoff.getDate() - days);
-
-      // Phase A: Stale open actions
-      const { data: staleActions, error: actionsErr } = await supabase
-        .from("actions")
-        .select("id, content, created_at")
-        .eq("status", "open")
-        .lte("created_at", cutoff.toISOString())
-        .order("created_at", { ascending: true })
-        .limit(limit);
-
-      if (actionsErr) {
-        return {
-          content: [{ type: "text" as const, text: `Error querying actions: ${actionsErr.message}` }],
-          isError: true,
-        };
-      }
-
-      // Phase B: Stale questions
-      const { data: staleQuestions, error: questionsErr } = await supabase
-        .from("thoughts")
-        .select("id, content, created_at, metadata")
-        .contains("metadata", { type: "question" })
-        .lte("created_at", cutoff.toISOString())
-        .order("created_at", { ascending: true })
-        .limit(limit);
-
-      if (questionsErr) {
-        return {
-          content: [{ type: "text" as const, text: `Error querying questions: ${questionsErr.message}` }],
-          isError: true,
-        };
-      }
-
-      // Phase C: For each stale item, find related thought activity via semantic search
-      interface StaleItem {
-        kind: "Action" | "Question";
-        content: string;
-        created_at: string;
-        ageDays: number;
-        lastRelated: { daysAgo: number; snippet: string } | null;
-      }
-
-      const items: StaleItem[] = [];
-
-      // Check actions for related thoughts
-      const actionChecks = (staleActions ?? []).map(async (action) => {
-        const ageDays = Math.floor(
-          (now.getTime() - new Date(action.created_at).getTime()) / 86_400_000
-        );
-        let lastRelated: StaleItem["lastRelated"] = null;
-
-        try {
-          const embedding = await getEmbedding(action.content);
-          const { data: matches } = await supabase.rpc("match_thoughts", {
-            query_embedding: embedding,
-            match_threshold: 0.5,
-            match_count: 5,
-            filter: {},
-          });
-
-          if (matches?.length) {
-            const related = matches
-              .filter(
-                (t: { created_at: string }) =>
-                  new Date(t.created_at) > new Date(action.created_at)
-              )
-              .sort(
-                (a: { created_at: string }, b: { created_at: string }) =>
-                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-
-            if (related.length > 0) {
-              const newest = related[0];
-              const daysAgo = Math.floor(
-                (now.getTime() - new Date(newest.created_at).getTime()) / 86_400_000
-              );
-              const snippet =
-                newest.content.length > 60
-                  ? newest.content.slice(0, 60).trim() + "..."
-                  : newest.content;
-              lastRelated = { daysAgo, snippet };
-            }
-          }
-        } catch {
-          // Embedding/RPC failure for one item shouldn't abort the whole scan
-        }
-
-        items.push({
-          kind: "Action",
-          content: action.content,
-          created_at: action.created_at,
-          ageDays,
-          lastRelated,
-        });
-      });
-
-      // Check questions for follow-up thoughts
-      const questionChecks = (staleQuestions ?? []).map(async (question) => {
-        const ageDays = Math.floor(
-          (now.getTime() - new Date(question.created_at).getTime()) / 86_400_000
-        );
-        let lastRelated: StaleItem["lastRelated"] = null;
-
-        try {
-          const embedding = await getEmbedding(question.content);
-          const { data: matches } = await supabase.rpc("match_thoughts", {
-            query_embedding: embedding,
-            match_threshold: 0.5,
-            match_count: 5,
-            filter: {},
-          });
-
-          if (matches?.length) {
-            // Exclude the question itself and filter to thoughts after it
-            const related = matches
-              .filter(
-                (t: { id: string; created_at: string }) =>
-                  t.id !== question.id &&
-                  new Date(t.created_at) > new Date(question.created_at)
-              )
-              .sort(
-                (a: { created_at: string }, b: { created_at: string }) =>
-                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-
-            if (related.length > 0) {
-              const newest = related[0];
-              const daysAgo = Math.floor(
-                (now.getTime() - new Date(newest.created_at).getTime()) / 86_400_000
-              );
-              const snippet =
-                newest.content.length > 60
-                  ? newest.content.slice(0, 60).trim() + "..."
-                  : newest.content;
-              lastRelated = { daysAgo, snippet };
-            }
-          }
-        } catch {
-          // Embedding/RPC failure for one item shouldn't abort the whole scan
-        }
-
-        items.push({
-          kind: "Question",
-          content: question.content,
-          created_at: question.created_at,
-          ageDays,
-          lastRelated,
-        });
-      });
-
-      await Promise.all([...actionChecks, ...questionChecks]);
-
-      // Phase D: Format output
-      if (items.length === 0) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `No stale loops detected (>${days} days). Everything looks current!`,
-            },
-          ],
-        };
-      }
-
-      // Sort by age descending so oldest items surface first
-      items.sort((a, b) => b.ageDays - a.ageDays);
-
-      const lines: string[] = [`${items.length} stale loop(s) detected (>${days} days):\n`];
-
-      items.forEach((item, i) => {
-        const contentPreview =
-          item.content.length > 80
-            ? item.content.slice(0, 80).trim() + "..."
-            : item.content;
-
-        lines.push(`${i + 1}. [${item.kind}, ${item.ageDays} days old] "${contentPreview}"`);
-
-        if (item.lastRelated) {
-          lines.push(
-            `   Last related capture: ${item.lastRelated.daysAgo} days ago (${item.lastRelated.snippet})`
-          );
-          if (item.lastRelated.daysAgo <= days / 2) {
-            lines.push(
-              `   \u2192 Still active in your thinking but no action taken`
-            );
-          } else {
-            lines.push(
-              `   \u2192 Active topic, but this specific ${item.kind.toLowerCase()} hasn't moved`
-            );
-          }
-        } else {
-          lines.push(`   No related captures since original`);
-          lines.push(
-            `   \u2192 Completely cold \u2014 needs attention or cancellation`
-          );
-        }
-
-        lines.push("");
-      });
+      const items = await detectStaleLoops(supabase, getEmbedding, { days, limit });
+      const output = formatStaleLoopsOutput(items, days);
 
       return {
-        content: [{ type: "text" as const, text: lines.join("\n") }],
+        content: [{ type: "text" as const, text: output }],
       };
     } catch (err: unknown) {
       return {

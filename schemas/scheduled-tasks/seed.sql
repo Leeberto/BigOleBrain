@@ -50,8 +50,8 @@ values (
   'cron',
   '0 9 * * 1',
   'stale_loop_scan',
-  '{"queries": [{"source": "actions", "filter": {"status": "open", "older_than_days": 14}, "limit": 50}]}',
-  'mcp_response'
+  '{"stale_threshold_days": 14, "limit": 20}',
+  'email'
 ) on conflict (name) do nothing;
 
 insert into scheduled_tasks (name, description, enabled, trigger_type, cron_expression, task_type, gather_config, delivery_channel)
