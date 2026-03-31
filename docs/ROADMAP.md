@@ -42,7 +42,7 @@ See `CLAUDE.md` for the full list. Key rules:
 | 1.1d-s7 Event trigger | 🔲 Ready | `docs/specs/1.1d-s7-event-trigger.md` |
 | 1.1d-s8 Trend analysis task type | 🔲 Blocked on 1.1d-s2, 4.2 | `docs/specs/1.1d-s8-trend-analysis.md` |
 | 2.1 Multi-user auth | ✅ Complete | `docs/specs/2.1-multi-user-auth.md` |
-| 2.2 Liv's dashboard | 🔲 Blocked on 2.1 | `docs/specs/2.2-livs-dashboard.md` |
+| 2.2 Liv's dashboard | 🔲 Ready | `docs/specs/2.2-livs-dashboard.md` |
 | 2.3 Instacart export | 🔲 Standalone | `docs/specs/2.3-instacart-export.md` |
 | 4.1 Thought graph | 🔲 Phase 4 | `docs/specs/4.1-thought-graph.md` |
 | 4.3 Capture sources | 🔲 Modular | `docs/specs/4.3-capture-sources.md` |

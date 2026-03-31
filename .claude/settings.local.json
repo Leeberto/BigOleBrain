@@ -5,7 +5,9 @@
       "Bash(find /c/Users/tinkl/OneDrive/Documents/GitHub/BigOleBrain -name *.ts -o -name *.js)",
       "Bash(find /c/Users/tinkl/OneDrive/Documents/GitHub/BigOleBrain -name *.ts -o -name *.tsx)",
       "Bash(find /c/Users/tinkl/OneDrive/Documents/GitHub/BigOleBrain -type f -not -path */node_modules/* -not -path */.git/* -not -path */.next/*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(supabase functions:*)",
+      "mcp__81c5a201-cbc0-460f-adde-9ee2d89ece86__detect_stale_loops"
     ]
   }
 }
