@@ -1,0 +1,16 @@
+{
+  "name": "Multi-user Auth",
+  "version": "1.0.0",
+  "description": "Household-scoped multi-user authentication with RLS policies",
+  "category": "schemas",
+  "tags": ["auth", "rls", "multi-user", "household"],
+  "requires": [],
+  "tables": ["households", "household_members"],
+  "modifies": [
+    "thoughts", "actions",
+    "recipes", "meal_plans", "shopping_lists",
+    "family_members", "activities", "important_dates",
+    "maintenance_tasks", "maintenance_logs",
+    "household_items", "household_vendors"
+  ]
+}

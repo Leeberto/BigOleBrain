@@ -39,20 +39,25 @@ See `CLAUDE.md` for the full list. Key rules:
 | 1.1d-s4 Alert digest task type | ✅ Complete | `docs/specs/1.1d-s4-alert-digest.md` |
 | 1.1d-s5 Stale loop scan task type | ✅ Complete | `docs/specs/1.1d-s5-stale-loop-scan.md` |
 | 1.1d-s6 Deck builder task type | 🚫 Blocked on template | `docs/specs/1.1d-s6-deck-builder.md` |
-| 1.1d-s7 Event trigger | 🔲 Blocked on 1.1d-s2 | `docs/specs/1.1d-s7-event-trigger.md` |
+| 1.1d-s7 Event trigger | 🔲 Ready | `docs/specs/1.1d-s7-event-trigger.md` |
 | 1.1d-s8 Trend analysis task type | 🔲 Blocked on 1.1d-s2, 4.2 | `docs/specs/1.1d-s8-trend-analysis.md` |
-| 2.1 Multi-user auth | 🔲 Phase 2 | `docs/specs/2.1-multi-user-auth.md` |
+| 2.1 Multi-user auth | ✅ Complete | `docs/specs/2.1-multi-user-auth.md` |
 | 2.2 Liv's dashboard | 🔲 Blocked on 2.1 | `docs/specs/2.2-livs-dashboard.md` |
 | 2.3 Instacart export | 🔲 Standalone | `docs/specs/2.3-instacart-export.md` |
 | 4.1 Thought graph | 🔲 Phase 4 | `docs/specs/4.1-thought-graph.md` |
 | 4.3 Capture sources | 🔲 Modular | `docs/specs/4.3-capture-sources.md` |
-
+| **Phase 5: Agent pipeline** | | |
+| 5.1 Triage agent | 🔲 Blocked on 1.1a | `docs/specs/5.1-triage-agent.md` |
+| 5.2 Routing agent | 🔲 Blocked on 5.1 | `docs/specs/5.2-routing-agent.md` |
+| 5.3 Verification loop | 🔲 Blocked on 5.2 | `docs/specs/5.3-verification-loop.md` |
+| 5.4 Research agent (first exec agent) | 🔲 Blocked on 5.2, 5.3 | `docs/specs/5.4-research-agent.md` |
 ---
 
 ## Build order
 
 This sequence maximizes compounding. Each item = one Claude Code session.
 
+### Phase 1: Foundation + dashboard
 ```
 1.1a  UUID exposure              ← patch, everything downstream needs it
 1.1b  Recurring actions          ← schema migration + MCP update
@@ -62,20 +67,42 @@ This sequence maximizes compounding. Each item = one Claude Code session.
 1.2d  Thoughts view              ← thought feed, search, "→ Action" conversion
 3.2   Stale loop detector (MCP)  ← quick win, no dependencies
 4.2   Weekly trends (MCP)        ← quick win, improves weekly review
+```
+
+### Task engine (build before or after agent pipeline — your call)
+```
 1.1d-s1 Task engine schema       ← schema + runner with manual trigger
 1.1d-s2 Cron triggers            ← cron evaluation in runner
 1.1d-s3 LLM prompt task type     ← morning briefing / weekly review
 1.1d-s4 Alert digest task type   ← daily due-date notifications
 1.1d-s5 Stale loop scan          ← scheduled mode of 3.2
-1.1d-s6 Deck builder             ← BLOCKED on template
+1.1d-s6 Deck builder             ← UNBLOCKED once 5.2 exists (routing agent replaces template)
 1.1d-s7 Event trigger            ← Google Calendar integration
 1.1d-s8 Trend analysis           ← scheduled mode of 4.2
+```
+
+### Phase 5: Agent pipeline
+```
+5.1   Triage agent               ← thought → action auto-creation
+5.2   Routing agent              ← classify actions, dispatch to agents or human
+5.3   Verification loop          ← agent output review + approve/reject/retry
+5.4   Research agent             ← first execution agent, proves the pipeline end-to-end
+```
+
+### Phase 2: Multi-user
+```
 2.1   Multi-user auth            ← required before Liv access
 2.2   Liv's dashboard            ← requires 2.1
 2.3   Instacart export           ← standalone, anytime
+```
+
+### Phase 4: Intelligence
+```
 4.1   Thought graph              ← route in command center
 4.3   Capture sources            ← modular, whenever
 ```
+
+> **Note on 1.1d-s6 (deck builder):** Originally blocked on a template definition. Now unblocked by the agent pipeline — the routing agent (5.2) handles the "what to prepare" decision, and the deck builder becomes an execution agent capability rather than a hardcoded task type.
 
 ---
 
