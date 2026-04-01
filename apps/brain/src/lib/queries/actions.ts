@@ -26,7 +26,7 @@ export async function getActions(tab: 'active' | 'done' | 'cancelled'): Promise<
     .from('actions')
     .select('*')
     .in('status', statuses)
-    .order('due_date', { ascending: true, nullsLast: true })
+    .order('due_date', { ascending: true, nullsFirst: false })
 
   if (error) throw error
   return (data ?? []) as Action[]
