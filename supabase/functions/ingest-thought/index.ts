@@ -9,6 +9,7 @@ const supabase = createClient(
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const ALLOWED_CHAT_ID = Deno.env.get("TELEGRAM_ALLOWED_CHAT_ID")!;
+const DEFAULT_USER_ID = Deno.env.get("DEFAULT_USER_ID")!;
 
 async function sendTelegramMessage(chatId: number, text: string, replyToMessageId?: number) {
   const body: Record<string, unknown> = {
@@ -111,6 +112,7 @@ serve(async (req) => {
       content: text,
       embedding,
       metadata,
+      user_id: DEFAULT_USER_ID,
     });
 
     if (error) throw error;

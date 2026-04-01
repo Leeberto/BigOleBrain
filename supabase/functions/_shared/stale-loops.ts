@@ -26,6 +26,7 @@ export interface StaleItem {
 export interface StaleLoopOptions {
   days: number;
   limit: number;
+  userId?: string;
 }
 
 // ── Internal helpers ──────────────────────────
@@ -117,32 +118,38 @@ export async function detectStaleLoops(
   getEmbedding: (text: string) => Promise<number[]>,
   options: StaleLoopOptions
 ): Promise<StaleItem[]> {
-  const { days, limit } = options;
+  const { days, limit, userId } = options;
   const now = new Date();
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - days);
 
   // Phase A: Stale open actions
-  const { data: staleActions, error: actionsErr } = await supabase
+  let actionsQuery = supabase
     .from("actions")
     .select("id, content, created_at")
     .eq("status", "open")
     .lte("created_at", cutoff.toISOString())
     .order("created_at", { ascending: true })
     .limit(limit);
+  if (userId) actionsQuery = actionsQuery.eq("user_id", userId);
+
+  const { data: staleActions, error: actionsErr } = await actionsQuery;
 
   if (actionsErr) {
     throw new Error(`Error querying actions: ${actionsErr.message}`);
   }
 
   // Phase B: Stale questions
-  const { data: staleQuestions, error: questionsErr } = await supabase
+  let questionsQuery = supabase
     .from("thoughts")
     .select("id, content, created_at, metadata")
     .contains("metadata", { type: "question" })
     .lte("created_at", cutoff.toISOString())
     .order("created_at", { ascending: true })
     .limit(limit);
+  if (userId) questionsQuery = questionsQuery.eq("user_id", userId);
+
+  const { data: staleQuestions, error: questionsErr } = await questionsQuery;
 
   if (questionsErr) {
     throw new Error(`Error querying questions: ${questionsErr.message}`);
