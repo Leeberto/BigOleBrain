@@ -69,6 +69,7 @@ export default function MealsPage() {
   const [slotPanelOpen, setSlotPanelOpen] = useState(false)
   const [slotInitialDay, setSlotInitialDay] = useState<string | undefined>()
   const [editingMeal, setEditingMeal] = useState<MealPlanRow | null>(null)
+  const [slotFormKey, setSlotFormKey] = useState(0)
 
   // ── Recipes tab ───────────────────────────────────────────────────────────────
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -173,6 +174,7 @@ export default function MealsPage() {
     setEditingMeal(null)
     setSlotInitialDay(day)
     setAddToMealPlanRecipe(null)
+    setSlotFormKey((k) => k + 1)
     setSlotPanelOpen(true)
   }
 
@@ -180,6 +182,7 @@ export default function MealsPage() {
     setEditingMeal(meal)
     setSlotInitialDay(undefined)
     setAddToMealPlanRecipe(null)
+    setSlotFormKey((k) => k + 1)
     setSlotPanelOpen(true)
   }
 
@@ -254,6 +257,7 @@ export default function MealsPage() {
     setAddToMealPlanRecipe(recipe)
     closeRecipePanel()
     setActiveTab('week')
+    setSlotFormKey((k) => k + 1)
     setSlotPanelOpen(true)
   }
 
@@ -300,7 +304,7 @@ export default function MealsPage() {
 
     if (shoppingList) {
       try {
-        await upsertShoppingList(formatWeekStart(weekStart), next, shoppingList.id)
+        await upsertShoppingList(formatWeekStart(weekStart), next, householdId!, shoppingList.id)
       } catch {
         // revert on failure
         setShoppingItems(shoppingItems)
@@ -422,6 +426,7 @@ export default function MealsPage() {
           title={slotPanelTitle}
         >
           <MealSlotForm
+            key={slotFormKey}
             weekStart={formatWeekStart(weekStart)}
             initialDay={slotInitialDay}
             initialMeal={editingMeal ?? undefined}

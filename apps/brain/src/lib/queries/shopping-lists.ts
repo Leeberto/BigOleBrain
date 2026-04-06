@@ -52,9 +52,10 @@ export async function upsertShoppingList(
     return data as ShoppingList
   }
 
+  const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from('shopping_lists')
-    .insert({ week_start: weekStart, items, household_id: householdId })
+    .insert({ week_start: weekStart, items, household_id: householdId, user_id: user!.id })
     .select()
     .single()
 
