@@ -31,16 +31,18 @@ function getUrgency(task: MaintenanceTask): { label: string; variant: 'red' | 'a
     return { label: 'No date', variant: 'green' }
   }
 
-  if (task.next_due < today) {
-    const diff = Math.floor((new Date(today + 'T00:00:00').getTime() - new Date(task.next_due + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
+  const nextDueDate = task.next_due.split('T')[0]
+
+  if (nextDueDate < today) {
+    const diff = Math.floor((new Date(today + 'T00:00:00').getTime() - new Date(nextDueDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
     return { label: `${diff}d overdue`, variant: 'red' }
   }
 
-  if (task.next_due === today) {
+  if (nextDueDate === today) {
     return { label: 'Today', variant: 'amber' }
   }
 
-  const diff = Math.floor((new Date(task.next_due + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
+  const diff = Math.floor((new Date(nextDueDate + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
   return { label: `In ${diff}d`, variant: 'green' }
 }
 
