@@ -39,6 +39,21 @@ app.post("*", async (c) => {
     return c.json({ error: "DEFAULT_USER_ID not configured" }, 500);
   }
 
+  const { data: memberRow, error: memberError } = await supabase
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", userId)
+    .single();
+
+  if (memberError || !memberRow) {
+    return c.json(
+      { error: `Could not resolve household_id: ${memberError?.message ?? "no household found"}` },
+      500
+    );
+  }
+
+  const householdId = memberRow.household_id;
+
   const server = new McpServer({ name: "meal-planning", version: "1.0.0" });
 
   // add_recipe tool
@@ -81,7 +96,7 @@ app.post("*", async (c) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
 
       return {
         content: [
@@ -133,7 +148,7 @@ app.post("*", async (c) => {
         ascending: false,
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
 
       return {
         content: [
@@ -194,7 +209,7 @@ app.post("*", async (c) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
 
       return {
         content: [
@@ -226,6 +241,7 @@ app.post("*", async (c) => {
       // Insert multiple meal plan entries
       const mealEntries = args.meals.map((meal: any) => ({
         user_id: userId,
+        household_id: householdId,
         week_start: args.week_start,
         day_of_week: meal.day_of_week,
         meal_type: meal.meal_type,
@@ -240,7 +256,7 @@ app.post("*", async (c) => {
         .insert(mealEntries)
         .select();
 
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
 
       return {
         content: [
@@ -274,7 +290,7 @@ app.post("*", async (c) => {
         .order("day_of_week")
         .order("meal_type");
 
-      if (error) throw error;
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
 
       return {
         content: [
@@ -307,7 +323,7 @@ app.post("*", async (c) => {
         .eq("user_id", userId)
         .eq("week_start", args.week_start);
 
-      if (mealError) throw mealError;
+      if (mealError) throw new Error(mealError.message ?? JSON.stringify(mealError));
 
       // Aggregate ingredients from all recipes
       const itemsMap = new Map();
@@ -362,7 +378,7 @@ app.post("*", async (c) => {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error(error.message ?? JSON.stringify(error));
         result = data;
       } else {
         // Create new
@@ -376,7 +392,7 @@ app.post("*", async (c) => {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error(error.message ?? JSON.stringify(error));
         result = data;
       }
 
