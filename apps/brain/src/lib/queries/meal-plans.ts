@@ -51,9 +51,10 @@ export async function addMeal(
   householdId: string,
 ): Promise<MealPlanRow> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from('meal_plans')
-    .insert({ ...meal, household_id: householdId })
+    .insert({ ...meal, household_id: householdId, user_id: user!.id })
     .select()
     .single()
 
