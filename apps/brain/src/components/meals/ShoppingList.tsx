@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { ShoppingList as ShoppingListType, ShoppingItem } from '@/lib/queries/shopping-lists'
 
 type ShoppingListProps = {
@@ -21,10 +22,19 @@ export function ShoppingList({
   onToggleItem,
   onSwitchToWeek,
 }: ShoppingListProps) {
+  const [copied, setCopied] = useState(false)
+
   const weekLabel = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const unpurchased = items.filter((i) => !i.purchased)
   const purchased = items.filter((i) => i.purchased)
+
+  async function handleCopyForInstacart() {
+    const text = unpurchased.map((i) => i.name).join('\n')
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -33,13 +43,23 @@ export function ShoppingList({
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Week of {weekLabel}
         </p>
-        <button
-          onClick={onGenerate}
-          disabled={generating}
-          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {generating ? 'Generating...' : shoppingList ? 'Refresh list' : 'Generate list'}
-        </button>
+        <div className="flex items-center gap-2">
+          {unpurchased.length > 0 && (
+            <button
+              onClick={handleCopyForInstacart}
+              className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              {copied ? 'Copied!' : 'Copy for Instacart'}
+            </button>
+          )}
+          <button
+            onClick={onGenerate}
+            disabled={generating}
+            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {generating ? 'Generating...' : shoppingList ? 'Refresh list' : 'Generate list'}
+          </button>
+        </div>
       </div>
 
       {/* No list yet */}

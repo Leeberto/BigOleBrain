@@ -31,7 +31,7 @@ export function Nav() {
   return (
     <>
       {/* Header bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-gray-200 bg-white px-4">
+      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-900">
         <button
           onClick={() => setOpen(true)}
           className="flex h-11 w-11 items-center justify-center rounded-lg"
@@ -66,11 +66,11 @@ export function Nav() {
 
       {/* Drawer */}
       <nav
-        className={`fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col bg-white shadow-lg transition-transform duration-200 ${
+        className={`fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col bg-white shadow-lg transition-transform duration-200 dark:bg-gray-900 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-14 items-center border-b border-gray-200 px-4">
+        <div className="flex h-14 items-center border-b border-gray-200 px-4 dark:border-gray-700">
           <span className="text-lg font-semibold">Menu</span>
         </div>
 
@@ -83,8 +83,8 @@ export function Nav() {
               onClick={close}
               className={`flex h-11 items-center rounded-lg px-3 text-base ${
                 pathname === link.href
-                  ? 'bg-gray-100 font-semibold'
-                  : 'hover:bg-gray-50'
+                  ? 'bg-gray-100 font-semibold dark:bg-gray-800'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'
               }`}
             >
               {link.label}
@@ -94,8 +94,8 @@ export function Nav() {
           {/* Owner-only links */}
           {isOwner && (
             <>
-              <hr className="my-2 border-gray-200" />
-              <span className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+              <hr className="my-2 border-gray-200 dark:border-gray-700" />
+              <span className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 Personal
               </span>
               {OWNER_LINKS.map((link) => (
@@ -105,8 +105,8 @@ export function Nav() {
                   onClick={close}
                   className={`flex h-11 items-center rounded-lg px-3 text-base ${
                     pathname === link.href
-                      ? 'bg-gray-100 font-semibold'
-                      : 'hover:bg-gray-50'
+                      ? 'bg-gray-100 font-semibold dark:bg-gray-800'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   {link.label}
@@ -117,7 +117,7 @@ export function Nav() {
         </div>
 
         {/* Bottom section */}
-        <div className="border-t border-gray-200 p-2">
+        <div className="border-t border-gray-200 p-2 dark:border-gray-700">
           <button
             disabled
             className="flex h-11 w-full items-center rounded-lg px-3 text-base text-gray-400"
@@ -129,7 +129,7 @@ export function Nav() {
               close()
               await signOut()
             }}
-            className="flex h-11 w-full items-center rounded-lg px-3 text-base text-red-600 hover:bg-red-50"
+            className="flex h-11 w-full items-center rounded-lg px-3 text-base text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             Sign out
           </button>
