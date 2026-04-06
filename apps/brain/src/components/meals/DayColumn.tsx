@@ -31,16 +31,10 @@ export function DayColumn({ dayOfWeek, date, meals, recipes, onAddMeal, onEditMe
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {formatDayHeader(dayOfWeek, date)}
         </span>
-        <button
-          onClick={() => onAddMeal(dayOfWeek)}
-          className="text-xs font-medium text-blue-600 dark:text-blue-400"
-        >
-          + Add
-        </button>
       </div>
 
       {sortedMeals.length === 0 ? (
