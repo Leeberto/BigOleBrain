@@ -183,7 +183,8 @@ export default function ActionsPage() {
         style={{ height: 'calc(100dvh - 3.5rem)' }}
       >
         {/* Scrollable content */}
-        <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto px-4 pb-24 pt-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-3 px-4 pb-24 pt-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Actions</h1>
 
           <ActionSearch
@@ -303,6 +304,7 @@ export default function ActionsPage() {
               )}
             </>
           )}
+          </div>
         </div>
 
         {/* FAB — hidden during search */}
