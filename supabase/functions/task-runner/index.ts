@@ -381,6 +381,222 @@ async function handleStaleLoopScan(task: Record<string, unknown>): Promise<strin
 }
 
 // ──────────────────────────────────────────────
+// Triage Scan — auto-create actions from thoughts
+// ──────────────────────────────────────────────
+
+const TRIAGE_SYSTEM_PROMPT = `You are a triage assistant. For each thought below, decide whether it implies a specific, concrete action that someone needs to take.
+
+Rules:
+- Only say YES if the thought clearly implies work: a task, errand, purchase, call, email, appointment to schedule, repair to arrange, follow-up to send, etc.
+- Say NO for observations, musings, ideas without a clear next step, questions that are rhetorical, decisions already made, or general notes.
+- When in doubt, say NO. It is better to miss an action than to create noise.
+
+Respond with a JSON object: {"results": [{"thought_id": "<uuid>", "is_action": true/false, "action_statement": "<one sentence action or null>"}]}`;
+
+interface TriageThought {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  user_id: string;
+  created_at: string;
+}
+
+async function handleTriageScan(task: Record<string, unknown>): Promise<string> {
+  const taskId = task.id as string;
+  const config = (task.gather_config ?? {}) as {
+    initial_lookback_hours?: number;
+    batch_limit?: number;
+  };
+  const lookbackHours = config.initial_lookback_hours ?? 24;
+  const batchLimit = config.batch_limit ?? 50;
+
+  // 1. Determine watermark from last successful run
+  const { data: lastRun } = await supabase
+    .from("task_run_log")
+    .select("completed_at")
+    .eq("task_id", taskId)
+    .eq("status", "success")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  let watermark: string;
+  if (lastRun?.completed_at) {
+    watermark = lastRun.completed_at;
+  } else {
+    const fallback = new Date();
+    fallback.setHours(fallback.getHours() - lookbackHours);
+    watermark = fallback.toISOString();
+  }
+
+  // 2. Query thoughts newer than watermark
+  const { data: thoughts, error: thoughtsErr } = await supabase
+    .from("thoughts")
+    .select("id, content, metadata, user_id, created_at")
+    .gt("created_at", watermark)
+    .order("created_at", { ascending: true })
+    .limit(batchLimit);
+
+  if (thoughtsErr) {
+    throw new Error(`Failed to query thoughts: ${thoughtsErr.message}`);
+  }
+
+  if (!thoughts?.length) {
+    return `# Triage Scan — ${new Date().toISOString()}\n\nNo new thoughts since ${watermark}.`;
+  }
+
+  // 3. Filter out thoughts that already have linked actions
+  const thoughtIds = thoughts.map((t: TriageThought) => t.id);
+  const { data: existingActions } = await supabase
+    .from("actions")
+    .select("thought_id")
+    .in("thought_id", thoughtIds);
+
+  const linkedThoughtIds = new Set(
+    (existingActions ?? []).map((a: { thought_id: string }) => a.thought_id)
+  );
+  const unprocessed = (thoughts as TriageThought[]).filter(
+    (t) => !linkedThoughtIds.has(t.id)
+  );
+
+  if (!unprocessed.length) {
+    return `# Triage Scan — ${new Date().toISOString()}\n\nScanned: ${thoughts.length} thoughts (since ${watermark})\nAll already have linked actions — nothing to do.`;
+  }
+
+  // 4. Fast path: action_item or task types
+  const fastPath: { thought: TriageThought; actionStatement: string }[] = [];
+  const needsLlm: TriageThought[] = [];
+
+  for (const t of unprocessed) {
+    const metaType = (t.metadata as Record<string, unknown>)?.type as string | undefined;
+    if (metaType === "action_item" || metaType === "task") {
+      fastPath.push({ thought: t, actionStatement: t.content });
+    } else {
+      needsLlm.push(t);
+    }
+  }
+
+  // 5. LLM path: evaluate remaining thoughts
+  const llmActions: { thought: TriageThought; actionStatement: string }[] = [];
+  let llmError: string | null = null;
+
+  if (needsLlm.length > 0) {
+    const thoughtList = needsLlm
+      .map((t) => `[${t.id}] ${t.content}`)
+      .join("\n");
+
+    try {
+      const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: TRIAGE_SYSTEM_PROMPT },
+            { role: "user", content: thoughtList },
+          ],
+        }),
+      });
+
+      if (!r.ok) {
+        const msg = await r.text().catch(() => "");
+        throw new Error(`OpenRouter call failed: ${r.status} ${msg}`);
+      }
+
+      const d = await r.json();
+      const raw = d.choices?.[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(raw);
+      const results = parsed.results ?? parsed.items ?? [];
+
+      const thoughtMap = new Map(needsLlm.map((t) => [t.id, t]));
+      for (const item of results) {
+        if (item.is_action && item.action_statement && thoughtMap.has(item.thought_id)) {
+          llmActions.push({
+            thought: thoughtMap.get(item.thought_id)!,
+            actionStatement: item.action_statement,
+          });
+        }
+      }
+    } catch (err) {
+      llmError = err instanceof Error ? err.message : String(err);
+      console.error("Triage LLM evaluation failed:", llmError);
+    }
+  }
+
+  // 6. Create actions for all actionable thoughts
+  const allActionable = [...fastPath, ...llmActions];
+  const created: { thoughtId: string; content: string }[] = [];
+  const insertErrors: string[] = [];
+
+  for (const { thought, actionStatement } of allActionable) {
+    const { data, error } = await supabase
+      .from("actions")
+      .insert({
+        content: actionStatement,
+        thought_id: thought.id,
+        user_id: thought.user_id,
+        status: "open",
+        assigned_to: "human",
+        agent_status: "pending_routing",
+        tags: ["source:triage-agent"],
+      })
+      .select("id, content")
+      .single();
+
+    if (error) {
+      // Unique index violation means duplicate — not a real error
+      if (error.code === "23505") {
+        console.log(`Skipped duplicate triage action for thought ${thought.id}`);
+      } else {
+        insertErrors.push(`thought ${thought.id}: ${error.message}`);
+      }
+    } else if (data) {
+      created.push({ thoughtId: thought.id, content: data.content });
+    }
+  }
+
+  // 7. Build summary
+  const lines: string[] = [
+    `# Triage Scan — ${new Date().toISOString()}\n`,
+    `Scanned: ${thoughts.length} thoughts (since ${watermark})`,
+    `Already linked: ${linkedThoughtIds.size}`,
+    `Evaluated: ${unprocessed.length} (${fastPath.length} fast-path, ${needsLlm.length} LLM)`,
+    `Created: ${created.length} actions\n`,
+  ];
+
+  if (created.length > 0) {
+    lines.push("## Actions Created");
+    for (const c of created) {
+      lines.push(`- "${c.content}" (from thought ${c.thoughtId})`);
+    }
+    lines.push("");
+  }
+
+  if (llmError) {
+    lines.push(`## LLM Error\n${llmError}\n`);
+  }
+
+  if (insertErrors.length > 0) {
+    lines.push("## Insert Errors");
+    for (const e of insertErrors) {
+      lines.push(`- ${e}`);
+    }
+    lines.push("");
+  }
+
+  const skipped = unprocessed.length - allActionable.length;
+  if (skipped > 0) {
+    lines.push(`Skipped (no action implied): ${skipped} thoughts`);
+  }
+
+  return lines.join("\n");
+}
+
+// ──────────────────────────────────────────────
 // Task Execution Pipeline
 // ──────────────────────────────────────────────
 
@@ -431,6 +647,9 @@ async function executeTask(task: Record<string, unknown>): Promise<TaskResult> {
         break;
       case "stale_loop_scan":
         output = await handleStaleLoopScan(task);
+        break;
+      case "triage_scan":
+        output = await handleTriageScan(task);
         break;
       case "deck_builder":
       case "trend_analysis":

@@ -59,7 +59,7 @@ server.registerTool(
         .optional()
         .describe("Hours before event to fire (default 2)"),
       task_type: z
-        .enum(["llm_prompt", "alert_digest", "deck_builder", "stale_loop_scan", "trend_analysis"])
+        .enum(["llm_prompt", "alert_digest", "deck_builder", "stale_loop_scan", "trend_analysis", "triage_scan"])
         .describe("What to do with gathered data"),
       prompt_template: z
         .string()
@@ -180,7 +180,7 @@ server.registerTool(
       due_date_lead_days: z.number().optional(),
       event_source: z.string().optional(),
       event_lead_hours: z.number().optional(),
-      task_type: z.enum(["llm_prompt", "alert_digest", "deck_builder", "stale_loop_scan", "trend_analysis"]).optional(),
+      task_type: z.enum(["llm_prompt", "alert_digest", "deck_builder", "stale_loop_scan", "trend_analysis", "triage_scan"]).optional(),
       prompt_template: z.string().optional(),
       output_format: z.enum(["markdown", "html", "pptx", "json"]).optional(),
       gather_config: z.string().optional().describe("JSON string for gather configuration"),
