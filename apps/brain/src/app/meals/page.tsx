@@ -128,7 +128,7 @@ export default function MealsPage() {
     if (activeTab === 'week' && recipes.length > 0) return // already loaded
     const timer = setTimeout(() => loadRecipes(recipeSearch), recipeSearch ? 300 : 0)
     return () => clearTimeout(timer)
-  }, [activeTab, recipeSearch, loadRecipes])
+  }, [activeTab, recipeSearch, loadRecipes, recipes.length])
 
   // ── Load: shopping list ───────────────────────────────────────────────────────
   const loadShoppingList = useCallback(async (monday: Date) => {

@@ -4,35 +4,57 @@
 
 <h1 align="center">Open Brain</h1>
 
-The infrastructure layer for your thinking. One database, one AI gateway, one chat channel. Any AI you use can plug in. No middleware, no SaaS chains, no Zapier.
+The infrastructure layer for your thinking. One database, one AI gateway, one chat channel. Any AI you use can plug in.
 
-This isn't a notes app. It's a database with vector search and an open protocol — built so that every AI tool you use shares the same persistent memory of you. Claude, ChatGPT, Cursor, Claude Code, whatever ships next month. One brain. All of them.
+This repo mixes the public Open Brain learning path with the maintained product app, reusable dashboards, and supporting implementation docs.
 
-> Open Brain was created by [Nate B. Jones](https://natesnewsletter.substack.com/). Follow the [Substack](https://natesnewsletter.substack.com/) for updates, discussion, and the companion prompt pack. Join the [Discord](https://discord.gg/Cgh9WJEkeG) for real-time help and community.
-
-https://github.com/user-attachments/assets/80a79b09-f323-42c6-b11b-de10bb6fa36f
+> Open Brain was created by [Nate B. Jones](https://natesnewsletter.substack.com/). Follow the [Substack](https://natesnewsletter.substack.com/) for updates and join the [Discord](https://discord.gg/Cgh9WJEkeG) for real-time help and community.
 
 ## Getting Started
 
-https://github.com/user-attachments/assets/85208d73-112b-4204-82fd-d03b6c397a8b
-
 Never built an Open Brain? Start here:
 
-1. **[Setup Guide](docs/01-getting-started.md)** — Build the full system (database, AI gateway, Slack capture, MCP server) in about 45 minutes. No coding experience needed.
-2. **[AI-Assisted Setup](docs/04-ai-assisted-setup.md)** — Prefer building with Cursor, Claude Code, or another AI coding tool? Point it at this repo and go. Same system, different workflow.
-3. **[Companion Prompts](docs/02-companion-prompts.md)** — Five prompts that help you migrate your memories, discover use cases, and build the capture habit.
+1. **[Setup Guide](docs/01-getting-started.md)** - Build the full system in about 45 minutes.
+2. **[AI-Assisted Setup](docs/04-ai-assisted-setup.md)** - Pair with Cursor, Claude Code, Codex, or another AI coding tool.
+3. **[Companion Prompts](docs/02-companion-prompts.md)** - Use the prompt pack to migrate memories and build the capture habit.
 4. **Then pick Extension 1** and start building.
 
-**If you hit a wall:** We built a [FAQ](docs/03-faq.md) that covers the most common questions and gotchas. And if you need real-time help, we created dedicated AI assistants that know this system inside and out: a [Claude Skill](https://www.notion.so/product-templates/Open-Brain-Companion-Claude-Skill-31a5a2ccb526802797caeb37df3ba3cb?source=copy_link), a [ChatGPT Custom GPT](https://chatgpt.com/g/g-69a892b6a7708191b00e48ff655d5597-nate-jones-open-brain-assistant), and a [Gemini GEM](https://gemini.google.com/gem/1fDsAENjhdku-3RufY7ystbS1Md8MtDCg?usp=sharing). Use whichever one matches the AI tool you already use.
+If you hit a wall, use the [FAQ](docs/03-faq.md) and the community AI assistants linked there.
 
-## Extensions — The Learning Path
+## Repo Map
 
-https://github.com/user-attachments/assets/cc477f00-bb6b-4f96-9f7d-a6bcd0cf8b60
+This repo now has a clear split between product code, reusable templates, and contribution surfaces:
 
-Build these in order. Each one teaches new concepts through something you'll actually use. By the end, your agent manages your household, your schedule, your meals, your professional network, and your career — all interconnected.
+| Path | What lives here | When to change it |
+| --- | --- | --- |
+| [`apps/brain`](apps/brain/) | Canonical maintained product app | Changes that belong in the unified Open Brain app |
+| [`dashboards`](dashboards/) | Reusable frontend templates and dashboard contributions | Changes meant to stay standalone, deployable, or reusable |
+| [`extensions`](extensions/) | Curated learning-path builds | Maintainer-approved extension work |
+| [`schemas`](schemas/) | Database extensions and table add-ons | New schema modules that layer onto Open Brain |
+| [`integrations`](integrations/) | Capture sources, webhook handlers, MCP add-ons | New external connections |
+| [`primitives`](primitives/) | Reusable concepts used by multiple builds | Shared concepts that justify extraction |
+| [`docs`](docs/) | Setup guides, roadmap, specs, decisions, and build logs | Planning, implementation notes, and contributor guidance |
+
+Moving a feature from `dashboards/` into `apps/brain` is treated as a promotion into product code, not just a folder shuffle.
+
+## Planning Docs
+
+Use these docs consistently so contributors and AI tools do not have to guess where planning artifacts belong:
+
+- [`docs/AI-START-HERE.md`](docs/AI-START-HERE.md) - Fast onboarding for AI coding tools
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) - Future priorities and status
+- [`docs/specs/`](docs/specs/) - Numbered implementation specs
+- [`docs/decisions/`](docs/decisions/) - Durable decision records
+- [`docs/builds/`](docs/builds/) - Per-feature implementation logs
+- [`docs/drafts/`](docs/drafts/) - Working notes that are not yet committed to the plan
+- [`docs/project-index.md`](docs/project-index.md) - Runnable app and dashboard inventory
+
+## Extensions - The Learning Path
+
+Build these in order. Each one teaches new concepts through something you'll actually use.
 
 | # | Extension | What You Build | Difficulty |
-| --- | --------- | -------------- | ---------- |
+| --- | --- | --- | --- |
 | 1 | [Household Knowledge Base](extensions/household-knowledge/) | Home facts your agent can recall instantly | Beginner |
 | 2 | [Home Maintenance Tracker](extensions/home-maintenance/) | Scheduling and history for home upkeep | Beginner |
 | 3 | [Family Calendar](extensions/family-calendar/) | Multi-person schedule coordination | Intermediate |
@@ -40,79 +62,51 @@ Build these in order. Each one teaches new concepts through something you'll act
 | 5 | [Professional CRM](extensions/professional-crm/) | Contact tracking wired into your thoughts | Intermediate |
 | 6 | [Job Hunt Pipeline](extensions/job-hunt/) | Application tracking and interview pipeline | Advanced |
 
-Extensions compound. Your CRM knows about thoughts you've captured. Your meal planner checks who's home this week. Your job hunt contacts automatically become professional network contacts. This is what happens when your agent can see across your whole system.
-
-## Primitives: Concepts That Compound
-
-https://github.com/user-attachments/assets/f488e495-fe2a-4ccc-a834-fc6ab5a0ed41
+## Primitives
 
 Some concepts show up in multiple extensions. Learn them once, apply them everywhere.
 
 | Primitive | What It Teaches | Used By |
-| --------- | --------------- | ------- |
+| --- | --- | --- |
 | [Row Level Security](primitives/rls/) | PostgreSQL policies for multi-user data isolation | Extensions 4, 5, 6 |
 | [Shared MCP Server](primitives/shared-mcp/) | Giving others scoped access to parts of your brain | Extension 4 |
 
 ## Community Contributions
 
-https://github.com/user-attachments/assets/9454662f-2648-4928-8723-f7d52e94e9b8
-
 Beyond the curated learning path, the community builds and shares:
 
-### [`/recipes`](recipes/) — Step-by-step builds
+### [`/recipes`](recipes/)
 
-Each recipe teaches you how to add a new capability to your Open Brain. Follow the instructions, run the code, get a new feature.
-- Email history import (pull your Gmail archive into searchable thoughts)
-- ChatGPT conversation import (ingest your ChatGPT data export)
-- Daily digest generator (automated summary of recent thoughts via email or Slack)
+Step-by-step capability builds such as imports, automations, and one-off utilities.
 
-### [`/schemas`](schemas/) — Database extensions
+### [`/schemas`](schemas/)
 
-New tables, metadata schemas, and column extensions for your Supabase database. Drop them in alongside your existing `thoughts` table.
-- CRM contact layer (track people, interactions, and relationship context)
-- Taste preferences tracker
-- Reading list with rating metadata
+Database extensions that layer onto your existing Open Brain schema.
 
-### [`/dashboards`](dashboards/) — Frontend templates
+### [`/dashboards`](dashboards/)
 
-Host these on Vercel or Netlify, pointed at your Supabase backend. Instant UI for your brain.
-- Personal knowledge dashboard
-- Weekly review view
-- Mobile-friendly capture UI
+Standalone frontend templates you can host on Vercel or Netlify. The maintained product app lives in [`apps/brain`](apps/brain/).
 
-### [`/integrations`](integrations/) — New connections
+### [`/integrations`](integrations/)
 
-MCP server extensions, webhook receivers, and capture sources beyond Slack.
-- Discord capture bot
-- Email forwarding handler
-- Browser extension connector
-
-## Using a Contribution
-
-1. Browse the category folders above
-2. Find what you want and open its folder
-3. Read the README — it has prerequisites, step-by-step instructions, and troubleshooting
-4. Most contributions involve running SQL against your Supabase database, deploying an edge function, or hosting frontend code. The README will tell you exactly what to do.
+MCP extensions, webhook receivers, and capture sources beyond Slack.
 
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full details. The short version:
 
-- **Extensions** are curated — discuss with maintainers before submitting
+- **Extensions** are curated - discuss with maintainers before submitting
 - **Primitives** should be referenced by 2+ extensions to justify extraction
 - **Recipes, schemas, dashboards, integrations** are open for community contributions
-- Every PR runs through an automated review agent that checks 11 rules (file structure, no secrets, SQL safety, primitive dependencies, etc.)
-- If the agent passes, a human admin reviews for quality and clarity
-- Your contribution needs a README with real instructions and a `metadata.json` with structured info
+- Every PR runs through an automated review agent before human review
+- Each contribution needs a `README.md` and a `metadata.json`
+
+For AI-assisted work, start with [CLAUDE.md](CLAUDE.md) and [docs/AI-START-HERE.md](docs/AI-START-HERE.md).
 
 ## Community
 
-- **[Discord](https://discord.gg/Cgh9WJEkeG)** — Real-time help, show-and-tell, contributor discussion
-- **[Substack](https://natesnewsletter.substack.com/)** — Updates, deep dives, and the story behind Open Brain
-
-## Who Maintains This
-
-Built by Nate B. Jones's team. Matt Hallett is the first community admin and repo manager. PRs are reviewed by the automated agent + human admins.
+- **[Discord](https://discord.gg/Cgh9WJEkeG)** - Real-time help, show-and-tell, contributor discussion
+- **[Substack](https://natesnewsletter.substack.com/)** - Updates, deep dives, and the story behind Open Brain
 
 ## License
 

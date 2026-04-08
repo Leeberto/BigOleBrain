@@ -69,7 +69,7 @@ export function ShoppingList({
             No shopping list for this week yet.
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Plan some meals first, then tap "Generate list" above.
+            Plan some meals first, then tap &quot;Generate list&quot; above.
           </p>
           <button
             onClick={onSwitchToWeek}

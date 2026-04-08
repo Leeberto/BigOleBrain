@@ -1,0 +1,28 @@
+{
+  "name": "bigolebrain-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/brain",
+    "dashboards/command-center",
+    "dashboards/data-browser",
+    "dashboards/home-maintenance",
+    "dashboards/thought-explorer"
+  ],
+  "scripts": {
+    "list:projects": "node scripts/list-projects.mjs",
+    "check:projects": "node scripts/check-projects.mjs",
+    "check:brain": "node scripts/check-projects.mjs brain",
+    "check:command-center": "node scripts/check-projects.mjs command-center",
+    "check:data-browser": "node scripts/check-projects.mjs data-browser",
+    "check:home-maintenance": "node scripts/check-projects.mjs home-maintenance",
+    "check:thought-explorer": "node scripts/check-projects.mjs thought-explorer",
+    "check": "npm run check:projects",
+    "dev:brain": "npm --prefix apps/brain run dev",
+    "dev:command-center": "npm --prefix dashboards/command-center run dev",
+    "dev:data-browser": "npm --prefix dashboards/data-browser run dev",
+    "dev:home-maintenance": "npm --prefix dashboards/home-maintenance run dev",
+    "dev:thought-explorer": "npm --prefix dashboards/thought-explorer run dev",
+    "lint:brain": "npm --prefix apps/brain run lint",
+    "lint": "npm run lint:brain"
+  }
+}

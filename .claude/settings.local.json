@@ -13,7 +13,11 @@
       "Bash(supabase secrets:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__list_projects",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__deploy_edge_function",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_edge_function",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_logs"
     ]
   }
 }
