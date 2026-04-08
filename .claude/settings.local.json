@@ -17,7 +17,16 @@
       "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__list_projects",
       "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__deploy_edge_function",
       "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_edge_function",
-      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_logs"
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_logs",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__apply_migration",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_project_url",
+      "Bash(curl -s -X POST https://vzgecdkapehmkvydcjxg.supabase.co/functions/v1/task-runner -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6Z2VjZGthcGVobWt2eWRjanhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjUwMTExNCwiZXhwIjoyMDg4MDc3MTE0fQ.zqPGwundgj-NEhBbpxPhoH_OpzdrP9zml51MkZfvGA4' -H 'Content-Type: application/json' -d '{\"task_id\": \"753a44d0-11b7-4473-8e5d-ebc328926e23\"}')",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__list_edge_functions",
+      "Bash(curl -s -w '\\\\n%{http_code}' -X POST https://vzgecdkapehmkvydcjxg.supabase.co/functions/v1/task-runner -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6Z2VjZGthcGVobWt2eWRjanhnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjUwMTExNCwiZXhwIjoyMDg4MDc3MTE0fQ.zqPGwundgj-NEhBbpxPhoH_OpzdrP9zml51MkZfvGA4' -H 'Content-Type: application/json' -d '{\"task_id\": \"753a44d0-11b7-4473-8e5d-ebc328926e23\"}')",
+      "Bash(xargs grep:*)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__29a692ce-1bc4-4d42-bc5d-bb76556ee8c7__get_publishable_keys"
     ]
   }
 }

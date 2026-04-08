@@ -44,6 +44,16 @@ app.post("*", async (c) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const householdId = Deno.env.get("DEFAULT_HOUSEHOLD_ID");
+  if (!householdId) {
+    return c.json({ error: "DEFAULT_HOUSEHOLD_ID not configured" }, 500);
+  }
+
+  const defaultUserId = Deno.env.get("DEFAULT_USER_ID");
+  if (!defaultUserId) {
+    return c.json({ error: "DEFAULT_USER_ID not configured" }, 500);
+  }
+
   const server = new McpServer(
     { name: "home-maintenance", version: "1.0.0" },
   );
@@ -53,7 +63,7 @@ app.post("*", async (c) => {
     "add_maintenance_task",
     "Create a new maintenance task (recurring or one-time)",
     {
-      user_id: z.string().describe("User ID (UUID)"),
+      user_id: z.string().optional().describe("User ID (UUID). Falls back to server default."),
       name: z.string().describe("Name of the maintenance task"),
       category: z.string().optional().describe("Category (e.g. 'hvac', 'plumbing', 'exterior', 'appliance', 'landscaping')"),
       frequency_days: z.number().optional().describe("How often this task repeats (in days). Null for one-time tasks. E.g. 90 for quarterly, 365 for annual"),
@@ -68,7 +78,8 @@ app.post("*", async (c) => {
         const { data, error } = await supabase
           .from("maintenance_tasks")
           .insert({
-            user_id,
+            user_id: user_id || defaultUserId,
+            household_id: householdId,
             name,
             category: category || null,
             frequency_days: frequency_days || null,
@@ -109,7 +120,7 @@ app.post("*", async (c) => {
     "Log that a maintenance task was completed. Automatically updates task's last_completed and calculates next_due.",
     {
       task_id: z.string().describe("ID of the maintenance task (UUID)"),
-      user_id: z.string().describe("User ID (UUID)"),
+      user_id: z.string().optional().describe("User ID (UUID). Falls back to server default."),
       completed_at: z.string().optional().describe("When the work was completed (ISO 8601 timestamp). Defaults to now if not provided."),
       performed_by: z.string().optional().describe("Who performed the work (e.g. 'self', vendor name)"),
       cost: z.number().optional().describe("Cost in dollars (or your currency)"),
@@ -126,7 +137,8 @@ app.post("*", async (c) => {
           .from("maintenance_logs")
           .insert({
             task_id,
-            user_id,
+            user_id: user_id || defaultUserId,
+            household_id: householdId,
             completed_at: completed_at || new Date().toISOString(),
             performed_by: performed_by || null,
             cost: cost || null,
@@ -177,7 +189,7 @@ app.post("*", async (c) => {
     "get_upcoming_maintenance",
     "List maintenance tasks due in the next N days",
     {
-      user_id: z.string().describe("User ID (UUID)"),
+      user_id: z.string().optional().describe("User ID (UUID). Not used for filtering — household_id is used instead."),
       days_ahead: z.number().optional().describe("Number of days to look ahead (default 30)"),
     },
     async (args) => {
@@ -190,7 +202,7 @@ app.post("*", async (c) => {
         const { data, error } = await supabase
           .from("maintenance_tasks")
           .select("*")
-          .eq("user_id", user_id)
+          .eq("household_id", householdId)
           .not("next_due", "is", null)
           .lte("next_due", cutoffDate.toISOString())
           .order("next_due", { ascending: true });
@@ -225,7 +237,7 @@ app.post("*", async (c) => {
     "search_maintenance_history",
     "Search maintenance logs by task name, category, or date range",
     {
-      user_id: z.string().describe("User ID (UUID)"),
+      user_id: z.string().optional().describe("User ID (UUID). Not used for filtering — household_id is used instead."),
       task_name: z.string().optional().describe("Filter by task name (partial match)"),
       category: z.string().optional().describe("Filter by category"),
       date_from: z.string().optional().describe("Start date for filtering (ISO 8601 date string)"),
@@ -242,7 +254,7 @@ app.post("*", async (c) => {
           let taskQuery = supabase
             .from("maintenance_tasks")
             .select("id")
-            .eq("user_id", user_id);
+            .eq("household_id", householdId);
 
           if (task_name) {
             taskQuery = taskQuery.ilike("name", `%${task_name}%`);
@@ -286,7 +298,7 @@ app.post("*", async (c) => {
               category
             )
           `)
-          .eq("user_id", user_id);
+          .eq("household_id", householdId);
 
         if (taskIds) {
           logQuery = logQuery.in("task_id", taskIds);
