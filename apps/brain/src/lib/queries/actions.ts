@@ -16,6 +16,12 @@ export type Action = {
   recurrence: 'daily' | 'weekly' | 'monthly' | null
   recurrence_source_id: string | null
   user_id: string | null
+  assigned_to: string | null
+  agent_capability: string | null
+  agent_status: string | null
+  agent_output: string | null
+  agent_error: string | null
+  agent_completed_at: string | null
 }
 
 export async function getActions(tab: 'active' | 'done' | 'cancelled'): Promise<Action[]> {
@@ -119,4 +125,58 @@ export async function searchActions(query: string): Promise<Action[]> {
 
   if (error) throw error
   return (data ?? []) as Action[]
+}
+
+export async function getActionsNeedingReview(): Promise<Action[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('actions')
+    .select('*')
+    .eq('agent_status', 'needs_review')
+    .order('agent_completed_at', { ascending: false, nullsFirst: false })
+
+  if (error) throw error
+  return (data ?? []) as Action[]
+}
+
+export async function approveAgentWork(action: Action): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('actions')
+    .update({
+      status: 'done',
+      completion_note: action.agent_output?.slice(0, 500) ?? 'Approved agent work',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', action.id)
+
+  if (error) throw error
+}
+
+export async function rejectToHuman(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('actions')
+    .update({
+      assigned_to: 'human',
+      agent_status: 'handed_back',
+    })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export async function retryAgentWork(id: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('actions')
+    .update({
+      agent_status: 'agent_working',
+      agent_error: null,
+      agent_output: null,
+      agent_completed_at: null,
+    })
+    .eq('id', id)
+
+  if (error) throw error
 }

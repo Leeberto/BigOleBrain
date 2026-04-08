@@ -597,6 +597,266 @@ async function handleTriageScan(task: Record<string, unknown>): Promise<string> 
 }
 
 // ──────────────────────────────────────────────
+// Routing Scan — classify actions + dispatch to agents
+// ──────────────────────────────────────────────
+
+const ROUTING_SYSTEM_PROMPT = `You are a task router. Given a list of actions and a list of available agent capabilities, decide for each action: does it require a human, or can an agent handle it?
+
+Actions that require a human:
+- Physical actions (go somewhere, move something, fix something with hands)
+- Phone calls and in-person conversations
+- Signing documents, legal decisions
+- Anything requiring judgment that hasn't been delegated (hiring, firing, large purchases)
+- Relationship-sensitive communications (difficult conversations, negotiations)
+
+Actions an agent can handle:
+- Research and information gathering
+- Drafting emails, messages, documents
+- Scheduling (if calendar access exists)
+- Data analysis and summarization
+- Building decks, reports, formatted outputs
+- Updating spreadsheets or databases
+- Routine notifications and reminders
+
+If an action is agent-handleable, match it to the most appropriate capability from the list. If no capability fits well, classify it as human_required.
+
+Respond with a JSON object: {"results": [{"action_id": "<uuid>", "classification": "human_required" | "agent_handleable", "capability": "<capability_name>" | null, "reasoning": "one sentence"}]}`;
+
+interface AgentCapability {
+  id: string;
+  name: string;
+  description: string;
+  handler_type: string;
+  handler_config: Record<string, unknown>;
+  enabled: boolean;
+}
+
+interface RoutingAction {
+  id: string;
+  content: string;
+  thought_id: string | null;
+  thoughts?: { content: string } | null;
+}
+
+async function dispatchToAgent(actionId: string, capability: AgentCapability): Promise<void> {
+  if (capability.handler_type === "edge_function") {
+    const functionName = (capability.handler_config as { function: string }).function;
+    const url = `${SUPABASE_URL}/functions/v1/${functionName}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action_id: actionId }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Dispatch to ${functionName} failed: ${res.status} ${body}`);
+    }
+  } else {
+    throw new Error(`Handler type "${capability.handler_type}" is not yet supported`);
+  }
+}
+
+async function handleRoutingScan(task: Record<string, unknown>): Promise<string> {
+  const taskId = task.id as string;
+  const config = (task.gather_config ?? {}) as {
+    batch_limit?: number;
+  };
+  const batchLimit = config.batch_limit ?? 50;
+
+  // 1. Load enabled capabilities
+  const { data: capabilities, error: capErr } = await supabase
+    .from("agent_capabilities")
+    .select("id, name, description, handler_type, handler_config, enabled")
+    .eq("enabled", true);
+
+  if (capErr) {
+    throw new Error(`Failed to load capabilities: ${capErr.message}`);
+  }
+
+  const capabilityMap = new Map(
+    (capabilities as AgentCapability[]).map((c) => [c.name, c])
+  );
+
+  // 2. Query actions pending routing
+  const { data: actions, error: actionsErr } = await supabase
+    .from("actions")
+    .select("id, content, thought_id, thoughts(content)")
+    .eq("agent_status", "pending_routing")
+    .order("created_at", { ascending: true })
+    .limit(batchLimit);
+
+  if (actionsErr) {
+    throw new Error(`Failed to query actions: ${actionsErr.message}`);
+  }
+
+  if (!actions?.length) {
+    return `# Routing Scan — ${new Date().toISOString()}\n\nNo actions pending routing.`;
+  }
+
+  // 3. Build LLM prompt with actions and capabilities
+  const capabilityList = (capabilities as AgentCapability[])
+    .map((c) => `- ${c.name}: ${c.description}`)
+    .join("\n");
+
+  const actionList = (actions as RoutingAction[])
+    .map((a) => {
+      const context = a.thoughts?.content ? ` (context: ${a.thoughts.content})` : "";
+      return `[${a.id}] ${a.content}${context}`;
+    })
+    .join("\n");
+
+  const userPrompt = `Available capabilities:\n${capabilityList}\n\nActions to route:\n${actionList}`;
+
+  // 4. Call LLM for classification
+  interface RoutingResult {
+    action_id: string;
+    classification: "human_required" | "agent_handleable";
+    capability: string | null;
+    reasoning: string;
+  }
+
+  let results: RoutingResult[] = [];
+  let llmError: string | null = null;
+
+  try {
+    const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: ROUTING_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!r.ok) {
+      const msg = await r.text().catch(() => "");
+      throw new Error(`OpenRouter call failed: ${r.status} ${msg}`);
+    }
+
+    const d = await r.json();
+    const raw = d.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+    results = parsed.results ?? parsed.items ?? [];
+  } catch (err) {
+    llmError = err instanceof Error ? err.message : String(err);
+    console.error("Routing LLM classification failed:", llmError);
+  }
+
+  // 5. Process results
+  const actionMap = new Map(
+    (actions as RoutingAction[]).map((a) => [a.id, a])
+  );
+
+  let handedBack = 0;
+  let dispatched = 0;
+  let dispatchFailed = 0;
+  const details: string[] = [];
+
+  for (const result of results) {
+    if (!actionMap.has(result.action_id)) continue;
+
+    if (
+      result.classification === "agent_handleable" &&
+      result.capability &&
+      capabilityMap.has(result.capability)
+    ) {
+      const cap = capabilityMap.get(result.capability)!;
+
+      // Update action to agent_working
+      await supabase
+        .from("actions")
+        .update({
+          assigned_to: "agent",
+          agent_capability: result.capability,
+          agent_status: "agent_working",
+        })
+        .eq("id", result.action_id);
+
+      // Dispatch to execution agent
+      try {
+        await dispatchToAgent(result.action_id, cap);
+        dispatched++;
+        details.push(`- ✓ "${actionMap.get(result.action_id)!.content}" → ${result.capability} (${result.reasoning})`);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`Dispatch failed for action ${result.action_id}:`, errMsg);
+
+        // Fallback: mark needs_review so human can see it
+        await supabase
+          .from("actions")
+          .update({ agent_status: "needs_review" })
+          .eq("id", result.action_id);
+
+        dispatchFailed++;
+        details.push(`- ⚠ "${actionMap.get(result.action_id)!.content}" → dispatch to ${result.capability} failed: ${errMsg}`);
+      }
+    } else {
+      // Human required (or no matching capability — fallback to human)
+      await supabase
+        .from("actions")
+        .update({
+          assigned_to: "human",
+          agent_status: "handed_back",
+        })
+        .eq("id", result.action_id);
+
+      handedBack++;
+      details.push(`- ← "${actionMap.get(result.action_id)!.content}" → human (${result.reasoning})`);
+    }
+  }
+
+  // Handle any actions the LLM didn't return results for — default to human
+  const processedIds = new Set(results.map((r) => r.action_id));
+  for (const action of actions as RoutingAction[]) {
+    if (!processedIds.has(action.id)) {
+      await supabase
+        .from("actions")
+        .update({
+          assigned_to: "human",
+          agent_status: "handed_back",
+        })
+        .eq("id", action.id);
+
+      handedBack++;
+      details.push(`- ← "${action.content}" → human (no LLM result, defaulting to human)`);
+    }
+  }
+
+  // 6. Build summary
+  const lines: string[] = [
+    `# Routing Scan — ${new Date().toISOString()}\n`,
+    `Actions evaluated: ${actions.length}`,
+    `Handed to human: ${handedBack}`,
+    `Dispatched to agent: ${dispatched}`,
+  ];
+
+  if (dispatchFailed > 0) {
+    lines.push(`Dispatch failures (needs_review): ${dispatchFailed}`);
+  }
+
+  if (llmError) {
+    lines.push(`\n## LLM Error\n${llmError}`);
+  }
+
+  if (details.length > 0) {
+    lines.push("\n## Details");
+    lines.push(...details);
+  }
+
+  return lines.join("\n");
+}
+
+// ──────────────────────────────────────────────
 // Task Execution Pipeline
 // ──────────────────────────────────────────────
 
@@ -650,6 +910,9 @@ async function executeTask(task: Record<string, unknown>): Promise<TaskResult> {
         break;
       case "triage_scan":
         output = await handleTriageScan(task);
+        break;
+      case "routing_scan":
+        output = await handleRoutingScan(task);
         break;
       case "deck_builder":
       case "trend_analysis":

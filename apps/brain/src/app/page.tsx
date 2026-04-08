@@ -6,11 +6,12 @@ import { Greeting } from '@/components/briefing/Greeting'
 import { BriefingStats } from '@/components/briefing/BriefingStats'
 import { ActionsSection } from '@/components/briefing/ActionsSection'
 import { AgentSection } from '@/components/briefing/AgentSection'
+import { ReviewSection } from '@/components/briefing/ReviewSection'
 import { MealsSection } from '@/components/briefing/MealsSection'
 import { StaleSection } from '@/components/briefing/StaleSection'
 import { MaintenanceSection } from '@/components/briefing/MaintenanceSection'
 import { useAuth } from '@/contexts/AuthContext'
-import { getActions, type Action } from '@/lib/queries/actions'
+import { getActions, getActionsNeedingReview, type Action } from '@/lib/queries/actions'
 
 function getLocalToday(): string {
   const d = new Date()
@@ -63,6 +64,9 @@ function HomeContent() {
   const [activeActions, setActiveActions] = useState<Action[]>([])
   const [actionsLoading, setActionsLoading] = useState(true)
   const [actionsError, setActionsError] = useState<string | null>(null)
+  const [reviewActions, setReviewActions] = useState<Action[]>([])
+  const [reviewLoading, setReviewLoading] = useState(true)
+  const [reviewVersion, setReviewVersion] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +99,29 @@ function HomeContent() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadReviewActions() {
+      setReviewLoading(true)
+      try {
+        const data = await getActionsNeedingReview()
+        if (!cancelled) setReviewActions(data)
+      } catch (error) {
+        console.error('[HomePage] failed to load review actions', error)
+        if (!cancelled) setReviewActions([])
+      } finally {
+        if (!cancelled) setReviewLoading(false)
+      }
+    }
+
+    loadReviewActions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [reviewVersion])
 
   const today = getLocalToday()
   const firstName = getFirstName(user)
@@ -140,6 +167,14 @@ function HomeContent() {
       />
 
       {isOwner && <AgentSection />}
+
+      {isOwner && (
+        <ReviewSection
+          loading={reviewLoading}
+          actions={reviewActions}
+          onUpdated={() => setReviewVersion((v) => v + 1)}
+        />
+      )}
 
       <MealsSection />
 

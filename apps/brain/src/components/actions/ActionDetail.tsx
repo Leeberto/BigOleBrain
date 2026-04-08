@@ -1,11 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import { Badge } from '@/components/shared/Badge'
-import type { Action } from '@/lib/queries/actions'
+import {
+  approveAgentWork,
+  rejectToHuman,
+  retryAgentWork,
+  type Action,
+} from '@/lib/queries/actions'
 
 type ActionDetailProps = {
   action: Action
   onComplete?: () => void
+  onAgentAction?: () => void
 }
 
 function formatDate(iso: string): string {
@@ -37,12 +44,52 @@ const STATUS_LABEL = {
   cancelled: 'Cancelled',
 } as const
 
-export function ActionDetail({ action, onComplete }: ActionDetailProps) {
+export function ActionDetail({ action, onComplete, onAgentAction }: ActionDetailProps) {
   const canComplete = action.status === 'open' || action.status === 'in_progress'
+  const isNeedsReview = action.agent_status === 'needs_review'
+  const [busy, setBusy] = useState(false)
+
+  async function handleAgentAction(fn: () => Promise<void>) {
+    setBusy(true)
+    try {
+      await fn()
+      onAgentAction?.()
+    } catch (err) {
+      console.error('[ActionDetail] agent action failed', err)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      {canComplete && onComplete && (
+      {isNeedsReview && (
+        <div className="flex gap-2">
+          <button
+            disabled={busy}
+            onClick={() => handleAgentAction(() => approveAgentWork(action))}
+            className="min-h-[44px] flex-1 rounded-lg bg-green-600 text-sm font-medium text-white disabled:opacity-50 dark:bg-green-500"
+          >
+            Approve
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => handleAgentAction(() => rejectToHuman(action.id))}
+            className="min-h-[44px] flex-1 rounded-lg bg-gray-200 text-sm font-medium text-gray-700 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300"
+          >
+            Take over
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => handleAgentAction(() => retryAgentWork(action.id))}
+            className="min-h-[44px] flex-1 rounded-lg bg-gray-200 text-sm font-medium text-gray-700 disabled:opacity-50 dark:bg-gray-700 dark:text-gray-300"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!isNeedsReview && canComplete && onComplete && (
         <button
           onClick={onComplete}
           className="min-h-[44px] w-full rounded-lg bg-green-600 text-sm font-medium text-white dark:bg-green-500"
@@ -120,6 +167,29 @@ export function ActionDetail({ action, onComplete }: ActionDetailProps) {
           {formatDateTime(action.created_at)}
         </span>
       </div>
+
+      {action.agent_output && (
+        <div className="rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
+          <p className="text-xs font-medium text-purple-700 dark:text-purple-400">
+            Agent output{action.agent_capability ? ` (${action.agent_capability})` : ''}
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-purple-800 dark:text-purple-300">
+            {action.agent_output}
+          </p>
+          {action.agent_completed_at && (
+            <p className="mt-1 text-xs text-purple-500 dark:text-purple-400">
+              Completed {formatDateTime(action.agent_completed_at)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {action.agent_error && (
+        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+          <p className="text-xs font-medium text-red-700 dark:text-red-400">Agent error</p>
+          <p className="mt-1 text-sm text-red-800 dark:text-red-300">{action.agent_error}</p>
+        </div>
+      )}
 
       {action.status === 'done' && action.completed_at && (
         <div className="rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
